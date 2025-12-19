@@ -1,0 +1,17 @@
+account_id;customer_document_id;company_id;industry;measure_name;document_net_value_total;net_price_per_unit;quantity;position_item_quantity;net_value_total;product_id;service_id;supply_product_name;drafts_supply_product_name;supply_service_name;drafts_supply_service_name;drafts_description;supply_product_description;supply_product_category;supply_catalog_name;ean;supply_product_manufacturer;unit_type;document_created_at;record_type;product_name;is_pv_module;Reasoning;Confidence;ground_truth;pred_val;truth_val
+0013V00000UhTXtQAN;10048236;34828;Photovoltaik;Photovoltaik mit Speicher;20.178,82;1,25;7,04;153;1.346,4;;271093.0;;;SOLARWATT Panel vision M 5.0 (445 Wp) black;SOLARWATT Panel vision M 5.0 (440 Wp) black;"<div>
+30 Jahre Produkt-Garantie<br /></div><div>
+30 Jahre Leistungs-Garantie
+auf 90% Nennleistung gemäß Garantiebedingungen für
+SOLARWATT Panel vision<br /><br /></div><div>
+Produkteigenschaften:<br />• Leistung: 440Wp <br />• bifaziale TOPCon Halbzellen<br />• ammoniakbeständig
+<br />• salznebelbeständig
+<br />• großhagelbeständig
+
+</div><div><br />
+
+</div><div><br />
+
+</div>";;;;;;;März 25, 2025, 05:56;service_wagegroup;;;;;1;0;1
+0013V00000auDcBQAU;10017589;42473;Sanitär, Heizung & Klima;Projekt;4.255,96;0,72;1;960;688,03;;381832.0;;;Balkonboden Ausbau;Balkonboden Aufbau;;;;;;;;März 22, 2025, 07:03;service_wagegroup;;;;;1;0;1
+001Tq000003HW3NIAW;10043428;58072;Sanitär, Heizung & Klima;;258,98;0,75;2;60;90;;271151.0;;;Lehrling 2. Lehrjahr;Lehrling 2. Lehrjahr;;;;;;;;März 24, 2025, 15:14;service_wagegroup;;;;;1;0;1
