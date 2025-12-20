@@ -2,7 +2,6 @@
 
 ![Python](https://img.shields.io/badge/Python-3.8%2B-blue)
 ![OpenAI](https://img.shields.io/badge/AI-OpenAI%20GPT-green)
-![License](https://img.shields.io/badge/License-MIT-lightgrey)
 
 **Automatisierte Klassifizierung von Handwerker-Rechnungen zur Nachhaltigkeitsanalyse.**
 
