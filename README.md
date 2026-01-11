@@ -1,24 +1,42 @@
 # ☀️ LEVENZ SOLAR
 
 ![Python](https://img.shields.io/badge/Python-3.8%2B-blue)
-![OpenAI](https://img.shields.io/badge/AI-OpenAI%20GPT-green)
+![OpenAI](https://img.shields.io/badge/AI-OpenAI%20GPT--5-green)
+![License](https://img.shields.io/badge/License-MIT-lightgrey)
 
 **Automatisierte Klassifizierung von Handwerker-Rechnungen zur Nachhaltigkeitsanalyse.**
 
-Dieses Projekt wurde entwickelt, um Produktdaten aus der Datenbank einer Handwerkersoftware zu analysieren. Ziel ist es, **Solarmodule und PV-Systeme** präzise von reinem Zubehör oder Dienstleistungen zu unterscheiden. Dies ermöglicht eine detaillierte Auswertung im Hinblick auf Nachhaltigkeitskennzahlen.
+Dieses Projekt wurde entwickelt, um Produktdaten aus der Datenbank einer Handwerkersoftware zu analysieren. Ziel ist es, **Solarmodule und PV-Systeme** präzise von reinem Zubehör oder Dienstleistungen zu unterscheiden und die **elektrische Leistung (kWp)** für CO₂-Berechnungen zu extrahieren.
 
 ---
 
 ## 🚀 Funktionen
 
-*   **KI-gestützte Klassifizierung**: Nutzt moderne Large Language Models (OpenAI GPT), um Produktnamen und -beschreibungen zu verstehen.
-*   **Präzise Unterscheidung**: Trennt eigentliche Stromerzeuger (PV-Module, Balkonkraftwerke) von Peripherie (Wechselrichter, Kabel, Montage).
+*   **KI-gestützte Klassifizierung**: Nutzt OpenAI GPT-5-mini, um Produktnamen und -beschreibungen zu verstehen.
+*   **Leistungsextraktion**: Extrahiert automatisch Watt/kWp-Angaben für CO₂-Berechnungen.
+*   **Kostentracking**: Detaillierter Bericht über API-Kosten pro Zeile und Hochrechnungen.
+*   **Parallele Verarbeitung**: Skalierbar für große Datensätze (70k+ Zeilen).
 *   **Transparente Entscheidungen**: Jede Klassifizierung enthält eine Wahrscheinlichkeit (`Confidence`) und eine Begründung (`Reasoning`).
-*   **Evaluations-Tools**: Integrierte Skripte zum Abgleich der Ergebnisse mit "Ground Truth"-Daten für Qualitätskontrollen.
+*   **Evaluations-Tools**: Precision, Recall, F1-Score mit Confusion Matrix.
+
+## 📊 Ergebnisse
+
+| Metrik | Wert |
+|--------|------|
+| Accuracy | 100% |
+| Precision | 100% |
+| Recall | 100% |
+| F1-Score | 100% |
+
+**Kosten-Prognose (gpt-5-mini):**
+| Datensatz | Kosten |
+|-----------|--------|
+| 1,000 Zeilen | ~€0.16 |
+| 70,000 Zeilen | ~€11.39 |
+
+---
 
 ## 📋 Kriterien der Klassifizierung
-
-Das System unterscheidet nach folgenden strengen Kriterien:
 
 ### ✅ IST ein PV-Modul / System
 *   **Einzelmodule**: Glas-Glas, Glas-Folie, Full Black (z.B. Trina, Jinko, Meyer Burger).
@@ -29,7 +47,6 @@ Das System unterscheidet nach folgenden strengen Kriterien:
 *   **Elektronik**: Reine Wechselrichter, Batteriespeicher (ohne Module), Smart Meter.
 *   **Infrastruktur**: Dachhaken, Montageschienen, Kabel, Stecker.
 *   **Dienstleistungen**: Montage, Anmeldung, Gerüstbau.
-*   **Fremdgewerke**: Sanitär, allgemeine Elektroinstallation.
 
 ---
 
@@ -37,73 +54,86 @@ Das System unterscheidet nach folgenden strengen Kriterien:
 
 ### 1. Repository klonen
 ```bash
-git clone https://github.com/your-username/levenz-solar.git
-cd levenz-solar
+git clone https://github.com/burakisme/LevenzSolar.git
+cd LevenzSolar
 ```
 
 ### 2. Abhängigkeiten installieren
-Es wird empfohlen, ein virtuelles Environment zu nutzen.
 ```bash
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
 ### 3. Umgebungsvariablen
-Erstelle eine `.env` Datei im Hauptverzeichnis (siehe `.env.example`) und füge deinen OpenAI API Key hinzu:
-
+Erstelle eine `.env` Datei:
 ```env
-OPENAI_API_KEY=sk- dein_key_hier
+OPENAI_API_KEY=sk-dein_key_hier
 ```
 
 ---
 
 ## 💻 Verwendung
 
-### Datensatz vorbereiten
-Lege deine Eingabedaten als CSV-Datei unter `data/input.csv` ab. Die Datei muss mindestens folgende Spalten enthalten:
-*   `product_id`: Eindeutige ID
-*   `product_name`: Name/Beschreibung des Produkts
-
 ### Klassifizierung starten
-Führe das Hauptskript aus, um die Produkte zu analysieren:
-
 ```bash
+# Standard (alle Zeilen, Batch-Size 10)
 python main.py
+
+# Schneller Test (10 Zeilen)
+python main.py --limit 10
+
+# Mit Parallelisierung (schneller)
+python main.py --batch-size 20 --parallel 5
+
+# Andere Input-Datei
+python main.py --input data/meine_daten.csv --output data/ergebnis.csv
 ```
-Das Ergebnis wird in `data/output.csv` gespeichert.
 
-### Evaluation (Optional)
-Wenn du Testdaten mit bekannten Lösungen hast (`data/Testdaten Mit Loesung CSV.csv` oder ähnlich), kannst du die Qualität der KI überprüfen:
+### CLI Optionen
+| Option | Default | Beschreibung |
+|--------|---------|--------------|
+| `--batch-size` | 10 | Produkte pro API-Anfrage |
+| `--parallel` | 1 | Parallele API-Worker |
+| `--model` | gpt-5-mini | OpenAI Modell |
+| `--limit` | - | Max. Zeilen (für Tests) |
+| `--input` | data/Testdaten... | Input CSV |
+| `--output` | data/output.csv | Output CSV |
 
+### Evaluation
 ```bash
 python evaluate.py
 ```
-Dies gibt eine Genauigkeitsstatistik aus und speichert Abweichungen in `data/evaluation_errors.csv`.
 
 ---
 
 ## 📂 Projektstruktur
 
 ```plaintext
-levenz-solar/
+LevenzSolar/
 ├── data/
-│   ├── input.csv             # Deine Eingabedaten
-│   ├── output.csv            # Ergebnisse der KI
-│   └── evaluation_errors.csv # Fehleranalyse (generiert)
+│   ├── output.csv              # Ergebnisse der KI
+│   └── evaluation_errors.csv   # Fehleranalyse
+├── docs/
+│   └── bachelorarbeit_exkurs.md  # Dokumentation für Thesis
 ├── src/
-│   ├── llm_client.py         # Logik für OpenAI API & Prompting
-│   └── models.py             # Datenmodelle (Pydantic)
-├── main.py                   # Hauptprogramm
-├── evaluate.py               # Skript zur Qualitätsprüfung
-├── .env                      # API Keys (nicht im Git)
-└── requirements.txt          # Python Abhängigkeiten
+│   ├── llm_client.py           # OpenAI API + Kostentracking
+│   ├── models.py               # Datenmodelle (Pydantic)
+│   └── processor.py            # CSV Verarbeitung
+├── main.py                     # Hauptprogramm
+├── evaluate.py                 # Qualitätsprüfung
+├── .env                        # API Keys (nicht im Git)
+└── requirements.txt            # Python Abhängigkeiten
 ```
+
+---
+
+## 📄 Dokumentation
+
+Für die Bachelorarbeit siehe: [`docs/bachelorarbeit_exkurs.md`](docs/bachelorarbeit_exkurs.md)
 
 ---
 
 ## 🤝 Mitwirken
 
-Beiträge sind willkommen! Bitte erstelle einen Pull Request oder eröffne ein Issue für Verbesserungsvorschläge.
-
-## 📄 Lizenz
-
-Bachelor Thesis Project.
+Beiträge sind willkommen! Bitte erstelle einen Pull Request oder eröffne ein Issue.
