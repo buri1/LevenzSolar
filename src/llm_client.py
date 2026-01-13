@@ -156,8 +156,9 @@ class LLMClient:
             api_key = os.getenv("OPENAI_API_KEY")
             if not api_key:
                 raise ValueError("OPENAI_API_KEY not found")
-            self.client = OpenAI(api_key=api_key)
-            print(f"🤖 Initialized OpenAI Client ({model})")
+            # Increase timeout for GPT-5 reasoning models (default is often 60s/600s)
+            self.client = OpenAI(api_key=api_key, timeout=1200.0)
+            print(f"🤖 Initialized OpenAI Client ({model}) with 20min timeout")
             
         elif provider == "zhipuai":
             if ZhipuAI is None:
@@ -208,15 +209,35 @@ class LLMClient:
         retries = 3
         for attempt in range(retries):
             try:
-                response = self.client.chat.completions.create(
-                    model=self.model,
-                    messages=[
+                # Prepare arguments
+                kwargs = {
+                    "model": self.model,
+                    "messages": [
                         {"role": "system", "content": SYSTEM_PROMPT},
                         {"role": "user", "content": user_prompt}
                     ],
-                    response_format={"type": "json_object"},
-                    temperature=0.1,  # Low temperature for consistency
-                )
+                    "response_format": {"type": "json_object"},
+                }
+                
+                # Reasoning models (o1, gpt-5) do not support temperature
+                if "o1" in self.model or "gpt-5" in self.model:
+                    pass # Temp not supported
+                else:
+                    kwargs["temperature"] = 0.1
+                
+                # GPT-5 Series: Set appropriate max_completion_tokens
+                # Without this, batches may truncate or timeout
+                if "gpt-5" in self.model:
+                    if "gpt-5.2" in self.model:
+                        kwargs["max_completion_tokens"] = 16384  # 16k for flagship
+                    else:  # gpt-5-mini
+                        kwargs["max_completion_tokens"] = 8192   # 8k for mini
+
+                response = self.client.chat.completions.create(**kwargs)
+                
+                if hasattr(response, 'usage'):
+                   # print(f"DEBUG USAGE: {response.usage}")
+                   pass
                 
                 # Update usage stats
                 self._update_usage(response, len(batch))
