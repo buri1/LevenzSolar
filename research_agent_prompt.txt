@@ -1,0 +1,30 @@
+**ROLE & CONTEXT**
+You are a Research Assistant helping to write the "Implementation" and "Methodology" chapters of a Bachelor Thesis.
+The thesis topic is: "Automated Classification of Artisan Invoices for Sustainability Analysis (Solar/PV Focus)."
+
+**INPUTS**
+1.  **Thesis Draft**: (Attached PDF/File) - Use this for tone, style, and context.
+2.  **Hand-off Document**: (See `docs/research_agent_handoff.md` content below) - This contains the technical details of the Python/AI approach we developed.
+
+**YOUR TASK**
+Write **2-3 pages** of academic text describing the new Python/AI-based approach. 
+The text should follow the structure below and be ready to insert into the thesis.
+
+**STRUCTURE OF THE SECTION**
+1.  **Architecture Overview**: 
+    -   Describe the move from pure Regex/Rule-based (previous approach) to a Hybrid LLM approach.
+    -   Explain the Python architecture (Orchestrator, Client, Processor).
+2.  **Prompt Engineering & Logic**:
+    -   Explain how specific "Business Rules" (Power extraction, Quantity logic, System vs. Module) were translated into System Prompt instructions.
+    -   Highlight the "Reasoning" and "Confidence" fields as features for auditability.
+3.  **Optimization & Scalability**:
+    -   Discuss Batching (10 items/request) and Parallelization.
+    -   Mention Cost Efficiency (Cost usage tracking, using `gpt-4o-mini`).
+4.  **Evaluation Strategy**: 
+    -   Briefly explain how the system validates itself against Ground Truth data (Precision/Recall).
+
+**TONE**
+Academic, technical, yet accessible. Focus on *design decisions* (Why LLM? Why Batching?) rather than just listing code.
+
+**HAND-OFF DATA (Reference this):**
+[Paste content of docs/research_agent_handoff.md here]

@@ -31,10 +31,12 @@ def main():
     parser = argparse.ArgumentParser(description='LLM-basierte PV-Modul Klassifizierung')
     parser.add_argument('--batch-size', type=int, default=10, help='Anzahl Produkte pro Batch (default: 10)')
     parser.add_argument('--parallel', type=int, default=1, help='Anzahl paralleler Workers (default: 1, max empfohlen: 5)')
-    parser.add_argument('--model', type=str, default='gpt-4o-mini', help='OpenAI Model (default: gpt-4o-mini)')
+    parser.add_argument('--provider', type=str, default='openai', choices=['openai', 'zhipuai'], help='LLM Provider (openai oder zhipuai)')
+    parser.add_argument('--model', type=str, default='gpt-4o-mini', help='Model Name (z.B. gpt-4o-mini oder glm-4-plus)')
     parser.add_argument('--input', type=str, default='data/Testdaten ohne Loesung - mit head spalte.csv', help='Input CSV Datei')
     parser.add_argument('--output', type=str, default='data/output.csv', help='Output CSV Datei')
     parser.add_argument('--limit', type=int, default=None, help='Max. Anzahl Zeilen zum Verarbeiten (für Tests)')
+    parser.add_argument('--test-file', type=str, default=None, help='Ground Truth CSV Datei (Standard: Input Datei wenn is_pv_module vorhanden)')
     args = parser.parse_args()
 
     print("🚀 Starte Solar-Modul Klassifizierung mit Leistungsextraktion")
@@ -45,11 +47,20 @@ def main():
     # User provided files
     input_file = args.input
     output_file = args.output
-    test_file = "data/Testdaten Mit Loesung CSV.csv"  # Ground Truth
+    # User provided files
+    input_file = args.input
+    output_file = args.output
+    
+    # Determined test file (Ground Truth)
+    # If a specific test file is not provided, we will check if the input file has ground truth later
+    test_file = args.test_file if args.test_file else None
     
     # Check API Key
-    if not os.getenv("OPENAI_API_KEY"):
+    if args.provider == 'openai' and not os.getenv("OPENAI_API_KEY"):
         print("❌ OPENAI_API_KEY not found in .env. Please set it.")
+        return
+    elif args.provider == 'zhipuai' and not (os.getenv("ZHIPUAI_API_KEY") or os.getenv("ZAI_API_KEY")):
+        print("❌ ZHIPUAI_API_KEY (or ZAI_API_KEY) not found in .env. Please set it.")
         return
 
     # 1. Initialize Processor
@@ -66,7 +77,7 @@ def main():
 
     # 2. Initialize Client
     try:
-        client = LLMClient(model=args.model)
+        client = LLMClient(provider=args.provider, model=args.model)
     except Exception as e:
         print(f"❌ Fehler beim Initialisieren des LLM Clients: {e}")
         return
@@ -160,8 +171,18 @@ def main():
     # 5. Print API Usage Report
     print(client.get_usage_report())
 
-    # 6. Evaluation (if test file exists)
-    test_path = Path(test_file)
+    # 6. Evaluation
+    test_path = Path(test_file) if test_file else Path(input_file)
+    
+    # If using input file, check if it has the label column
+    if not test_file:
+         # Check if input df has ground truth
+         if 'is_pv_module' in df_input.columns:
+             print("\n📊 Nutze Input-Datei als Ground Truth für Evaluation...")
+         else:
+             print("\n⚠️ Keine Test-Datei angegeben und Input hat keine 'is_pv_module' Spalte. Skipping Evaluation.")
+             return
+
     if test_path.exists() and all_results:
         print("\n📊 Starte Evaluation gegen Testdaten...")
         try:

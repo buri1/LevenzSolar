@@ -6,15 +6,33 @@ from dataclasses import dataclass, field
 import pandas as pd
 from openai import OpenAI
 from dotenv import load_dotenv
+from pydantic import BaseModel
+try:
+    from zhipuai import ZhipuAI
+except ImportError:
+    ZhipuAI = None
+
 from .models import ClassificationResult
 
 load_dotenv()
 
 # OpenAI Pricing (USD per 1M tokens) - Updated Jan 2026
+# Pricing per 1M tokens (USD approx.)
 PRICING = {
     "gpt-5-mini": {"input": 0.15 / 1_000_000, "output": 0.60 / 1_000_000},
+    "gpt-5.2": {"input": 5.00 / 1_000_000, "output": 15.00 / 1_000_000}, # Hypothetical High-Performance
     "gpt-4o-mini": {"input": 0.15 / 1_000_000, "output": 0.60 / 1_000_000},
     "gpt-4o": {"input": 2.50 / 1_000_000, "output": 10.00 / 1_000_000},
+    
+    # ZhipuAI (approx exchange rate 1 RMB = 0.14 USD)
+    "glm-4-plus": {"input": 0.70 / 1_000_000, "output": 0.70 / 1_000_000}, 
+    "glm-4-air": {"input": 0.14 / 1_000_000, "output": 0.14 / 1_000_000},
+    "glm-4-flash": {"input": 0.01 / 1_000_000, "output": 0.01 / 1_000_000},
+    
+    # GLM-4.5 Series (USD)
+    "glm-4.5-preview": {"input": 3.00 / 1_000_000, "output": 3.00 / 1_000_000}, # Estimating high
+    "glm-4.5-air": {"input": 0.20 / 1_000_000, "output": 1.10 / 1_000_000}, # Based on user text
+    "glm-4.5-flash": {"input": 0.00 / 1_000_000, "output": 0.00 / 1_000_000}, # Free?
 }
 
 @dataclass
@@ -76,11 +94,11 @@ TRUE - Echte PV-Module & Kraftwerke:
 - Sets & Systeme: "Balkonkraftwerke", "PV-Sets", "Mini-Solaranlagen" (auch wenn Wechselrichter/Speicher enthalten - das Gesamtsystem ist ein Stromerzeuger)
 - Technische Signale: Wp (Watt Peak), kWp, N-Type, TOPCon, ABC-Technologie, HJT, bifazial, monokristallin, Halfcut, Shingled
 
-FALSE - Zubehör & Dienstleistungen:
-- Elektrische Komponenten: Wechselrichter (Inverter), Batteriespeicher (ohne Module), Smart Meter, DTU, Optimierer (BRC/Tigo)
-- Montage & Infrastruktur: Dachhaken, Schienen, Kabel, Stecker, Schrauben, Ballastierung
-- Services: Montageleistungen, Anmeldung beim Netzbetreiber, Gerüstbau, Lieferpauschalen
-- Fremdgewerke: Heizungssanitär, allgemeine Elektrotechnik (FI-Schalter)
+FALSE - Zubehör & Dienstleistungen (MUSS FALSE SEIN, auch wenn "PV-Anlage" im Text steht!):
+- Elektrische Komponenten: Wechselrichter (Inverter), Hybrid-Wechselrichter, Batteriespeicher (ohne Module), Smart Meter, DTU, Optimierer
+- Montage & Infrastruktur: Dachhaken, Schienen, Kabel, Stecker, Schrauben, Ballastierung, Unterkonstruktion
+- Services: "Montage", "Installation", "Anmeldung", "Gerüstbau", "Lieferung", "Versand", "Spedition"
+- Unklare "Teile": Wenn nur "Teil einer PV-Anlage" steht, aber kein konkretes Modul/Set erkennbar ist -> FALSE
 
 ## LEISTUNGSEXTRAKTION (nur bei is_pv_module=true)
 
@@ -122,18 +140,38 @@ Antworte AUSSCHLIESSLICH als valides JSON-Objekt:
       "power_source": "module_wp" | "anlage_kwp" | "productcode" | null
     }
   ]
-}"""
+    }
+  ]
+}
+WICHTIG: Erstelle für JEDES Eingabe-Produkt einen Eintrag im `results` Array, auch wenn `is_pv_module` false ist!"""
 
 
 class LLMClient:
-    def __init__(self, model: str = "gpt-5-mini"):
-        self.api_key = os.getenv("OPENAI_API_KEY")
-        if not self.api_key:
-            raise ValueError("OPENAI_API_KEY not found in environment variables.")
-        
-        self.client = OpenAI(api_key=self.api_key)
+    def __init__(self, provider: str = "openai", model: str = "gpt-4o-mini"):
+        self.provider = provider
         self.model = model
         self.usage = UsageStats()
+        
+        if provider == "openai":
+            api_key = os.getenv("OPENAI_API_KEY")
+            if not api_key:
+                raise ValueError("OPENAI_API_KEY not found")
+            self.client = OpenAI(api_key=api_key)
+            print(f"🤖 Initialized OpenAI Client ({model})")
+            
+        elif provider == "zhipuai":
+            if ZhipuAI is None:
+                raise ImportError("zhipuai not installed. Run 'pip install zhipuai'")
+            
+            # Map user env var to expected key if needed
+            api_key = os.getenv("ZHIPUAI_API_KEY") or os.getenv("ZAI_API_KEY")
+            if not api_key:
+                raise ValueError("ZHIPUAI_API_KEY (or ZAI_API_KEY) not found")
+                
+            self.client = ZhipuAI(api_key=api_key)
+            print(f"🤖 Initialized ZhipuAI Client ({model})")
+        else:
+            raise ValueError(f"Unknown provider: {provider}")
         
     def _update_usage(self, response, rows_in_batch: int):
         """Update usage statistics from API response"""
@@ -154,9 +192,15 @@ class LLMClient:
         """Classify a batch of products and extract power data"""
         # Prepare content: show all fields as context
         products_text = ""
+        # Columns to exclude from the LLM input to prevent leakage
+        excluded_cols = {'is_pv_module', 'Confidence', 'Reasoning', 'power_watts', 'total_power_watts', 'power_source'}
+        
         for item in batch:
-            # Convert item dict to a string representation, filtering out None/NaN
-            item_str = ", ".join([f"{k}: {v}" for k, v in item.items() if pd.notnull(v)])
+            # Convert item dict to a string representation, filtering out None/NaN and excluded columns
+            item_data = {k: v for k, v in item.items() 
+                         if pd.notnull(v) and k not in excluded_cols}
+            
+            item_str = ", ".join([f"{k}: {v}" for k, v in item_data.items()])
             products_text += f"- {item_str}\n"
         
         user_prompt = f"Analysiere folgende Produkte und gib das JSON zurück:\n{products_text}"
@@ -179,10 +223,17 @@ class LLMClient:
                 
                 content = response.choices[0].message.content
                 if not content:
+                    print(f"❌ Empty response content from API for batch")
                     raise ValueError("Empty response from API")
+                
+                # DEBUG: Print content preview
+                # print(f"DEBUG Response: {content[:100]}...")
 
                 data = json.loads(content)
                 results_data = data.get("results", [])
+                
+                if not results_data:
+                    print(f"⚠️ No 'results' found in JSON. Content: {content[:500]}...")
                 
                 parsed_results = []
                 for item in results_data:
